@@ -1,0 +1,278 @@
+<PARSED TEXT FOR PAGE: 1 / 6>
+
+    Автономная некоммерческая организация высшего образования
+      «Санкт-Петербургский институт экономики и управления»
+
+
+
+
+              ПРАКТИЧЕСКАЯ
+                 РАБОТА
+  Дисциплина(модуль)/предмет ПМ 03 Сопровождение и обслуживание
+          программного обеспечения компьютерных систем
+
+Тема: Практическая работа №6. Отчёт о тестировании EnergyMeter API
+                                         МДК 03.02
+                           ВАРИАНТ: EnergyMeter System
+
+Студент (ка)/учащийся Тюрин Даниил Дмитриевич / ________ /
+                                          Ф. И. О.                     подпись
+
+
+Группа / Класс И13-24-11
+
+Руководитель: Александра Анатольевна Чудинова                      /________ /
+                 Должность, степень, Фамилия и инициалы                 подпись
+
+
+
+
+Дата представления работы «___» __________ 2026 г.
+
+Работа аттестована с оценкой                         ___________________________
+                                                            прописью
+
+
+
+
+                                     Санкт-Петербург
+                                          2026г.
+
+<PARSED TEXT FOR PAGE: 2 / 6>
+
+                                                      СОДЕРЖАНИЕ
+
+
+ВВЕДЕНИЕ..................................................................................................................................3
+1 Программа и условия испытаний............................................................................................ 3
+2 Листинг xUnit и FluentAssertions............................................................................................. 4
+3 Матрица покрытия.................................................................................................................... 4
+4 Баг-репорты и классификация................................................................................................. 4
+5 Команда запуска и форма фиксации результата....................................................................5
+ЗАКЛЮЧЕНИЕ............................................................................................................................ 5
+СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ..................................................................6
+ПРИЛОЖЕНИЕ А. СВЯЗЬ С ИСХОДНЫМ КОДОМ И РЕПОЗИТОРИЕМ........................6
+
+
+
+
+                                                                     2
+
+<PARSED TEXT FOR PAGE: 3 / 6>
+
+ВВЕДЕНИЕ
+
+        Цель     —      разработать       позитивные,            негативные,         граничные,
+интеграционные и защитные тесты для EnergyMeter System, связать их с
+требованиями и оформить отчёт о проверке. Стек тестов: xUnit 2.9.2,
+FluentAssertions 7.0.0 и Microsoft.AspNetCore.Mvc.Testing 8.0.11, .NET 8 [1–3].
+        Статус выполнения на дату отчёта: тестовые файлы созданы, но реально
+не запускались в рабочей среде подготовки, поскольку отсутствует dotnet
+SDK. Поэтому в матрице результат «Не выполнялся» и отсутствуют
+вымышленные значения PASS/FAIL. Чек-лист ожидаемых результатов
+отличается от фактического протокола запуска.
+
+1 Программа и условия испытаний
+
+        Объект       проверки:   MeterReadingValidator,                   MeterReadingService,
+ReadingsController, Program.cs и секция авторизации DashboardController.
+Подготовка: NuGet restore, ключ EnergyMeter__ApiKey=test-api-key, тестовая
+среда      Production     для    запрета          Swagger;            изоляция       хранилища
+WebApplicationFactory для каждого интеграционного теста.
+        Таблица 1 — Набор тест-кейсов
+                                      Входные данные /      Ожидаемое
+ID                Класс                                                          Статус
+                                      условие               поведение
+                                      METER-001, 120.5,
+TC-01             Позитивный                                Created / HTTP 201   Не выполнялся
+                                      текущее UTC
+TC-02             Граница             −0.01 кВт·ч           Invalid / HTTP 400   Не выполнялся
+TC-03             Граница             0 кВт·ч               Created              Не выполнялся
+TC-04             Граница             1 000 000 кВт·ч       Created              Не выполнялся
+TC-05             Граница             1 000 000.01 кВт·ч    Invalid              Не выполнялся
+TC-06             Негативный          MeterId = bad meter   Invalid              Не выполнялся
+                                      Момент UTC на 1
+TC-07             Негативный                                Invalid              Не выполнялся
+                                      день в будущем
+                                      Повтор meterId +
+TC-08             Негативный                                Duplicate / 409      Не выполнялся
+                                      timestamp
+                                      GET без X-API-
+TC-09             Безопасность                              401 Unauthorized     Не выполнялся
+                                      Key
+                                      POST валидного
+TC-10             Интеграция                                201 Created          Не выполнялся
+                                      JSON с ключом
+                                      Production GET
+TC-11             Безопасность        /swagger/v1/swagge    404 Not Found        Не выполнялся
+                                      r.json
+                                      Cookie POST без
+TC-12             Безопасность        CSRF token после      Запрет изменения     Проектируется
+                                      реального входа
+
+
+
+                                              3
+
+<PARSED TEXT FOR PAGE: 4 / 6>
+
+      TC-12 является приемочным сценарием для будущей интеграции Identity
+Provider: в учебной системе UI входа и выдачи antiforgery-token нет. Unit- и
+интеграционные файлы охватывают TC-01, 02, 05–11; TC-03/04 приведены как
+дополнительные граничные сценарии для расширения набора.
+
+2 Листинг xUnit и FluentAssertions
+
+      Листинг           —    Unit-тест     на        два       диапазонных              значения,
+ReadingServiceTests.cs
+ [Theory]
+ [InlineData(-0.01)]
+ [InlineData(1000000.01)]
+ public void OutOfRangeReading_ShouldBeRejected(double value)
+ {
+     var result = NewService().Create(new("METER-001", (decimal)value,
+          DateTimeOffset.UtcNow));
+     result.Status.Should().Be(CreateStatus.Invalid);
+ }
+      Листинг — Интеграционный тест запрета Swagger в Production
+ [Fact]
+ public async Task ProductionSwagger_ShouldNotBeAvailable()
+ {
+     using var factory = new TestApp(); // Environment = Production
+     using var client = factory.CreateClient(new()
+     {
+         BaseAddress = new Uri("https://localhost"),
+         AllowAutoRedirect = false
+     });
+     var response = await client.GetAsync("/swagger/v1/swagger.json");
+     response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+ }
+
+
+3 Матрица покрытия
+
+      Таблица 2 — Матрица требования → проверка → реализация
+Требование              Тесты                   Метод / файл               Тип
+                                                ReadingsController.Creat
+R-01 Приём показаний    TC-01, TC-10                                       Unit + Integration
+                                                e
+R-02 Ограничения                                MeterReadingValidator.V
+                        TC-02…TC-07                                        Unit
+полей                                           alidate
+                                                MeterReadingService.Cre
+R-03 Защита от дублей   TC-08                                              Unit
+                                                ate
+R-04 Доступ по ключу    TC-09                   Security/ApiKeyFilter      Integration
+R-05 Swagger Prod off   TC-11                   Program.cs                 Integration
+                                                                           Запланированный
+R-06 CSRF cookie POST   TC-12                   DashboardController
+                                                                           сценарий
+
+
+
+4 Баг-репорты и классификация
+
+      Баг-репорты ниже основаны на статическом анализе намеренно
+уязвимого эталона examples/insecure; это не результаты фактического
+
+
+                                            4
+
+<PARSED TEXT FOR PAGE: 5 / 6>
+
+проникновения в работающий сервер и не дефекты исправленного основного
+проекта.
+      Таблица 3 — Реестр баг-репортов
+                                                   Фактический результат
+ID / уровень           Шаги воспроизведения                                   Исправление / статус
+                                                   в коде
+                                                                              Условие
+                       В эталоне открыть                                      IsDevelopment();
+                                                   Swagger подключается
+EM-SEC-01 / Major      Program; найти                                         исправлено в основном
+                                                   независимо от среды
+                       UseSwagger вне if                                      коде, HTTP не
+                                                                              проверялся
+                                                                              AutoValidateAntiforgery
+                       В эталоне просмотреть       Нет проверки antiforgery   Token; исправлено в
+EM-SEC-02 / Critical   cookie POST                 token при                  основном коде,
+                       SaveReading                 авторизованном POST        браузерный тест не
+                                                                              выполнен
+                                                   Демонстрационное
+                       Перезапустить in-                                      Открытое ограничение:
+                                                   хранилище не
+EM-REL-03 / Major      memory приложение                                      внедрить БД, миграции
+                                                   предназначено для
+                       после записи                                           и бэкап
+                                                   persistence
+
+
+
+5 Команда запуска и форма фиксации результата
+
+      Листинг — Запуск на Windows с фиксацией TRX
+ dotnet restore tests/EnergyMeter.Tests/EnergyMeter.Tests.csproj
+ dotnet build tests/EnergyMeter.Tests/EnergyMeter.Tests.csproj -c Release
+ dotnet test tests/EnergyMeter.Tests/EnergyMeter.Tests.csproj --logger
+ "trx;LogFileName=tests.trx"
+      Таблица 4 — Протокол фактических испытаний (для заполнения после
+запуска)
+Параметр                                           Значение
+                                                   Не определены — выполнить на компьютере
+Дата/машина/SDK
+                                                   студента
+Итог тестирования                                  НЕ ВЫПОЛНЯЛОСЬ
+Число PASS / FAIL                                  Нет подтверждённых результатов
+                                                   TRX или лог GitHub Actions приложить после
+Подтверждение
+                                                   запуска
+Решение о допуске                                  Отложено до успешного выполнения тестов
+
+
+
+ЗАКЛЮЧЕНИЕ
+
+      Разработаны 12 тест-кейсов, создано девять автоматизированных
+проверок в двух тестовых классах (точное число xUnit cases зависит от
+развёртывания Theory), построена матрица требований и оформлены три
+записи о проблемах/ограничениях. Протокол отделяет ожидаемый результат
+от фактического, что исключает выдачу неподтверждённых тестов за
+выполненные.
+
+                                               5
+
+<PARSED TEXT FOR PAGE: 6 / 6>
+
+СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ
+
+1. ГОСТ Р 59792-2021. Виды испытаний автоматизированных систем. URL:
+https://protect.gost.ru/gost/details/60279c95-21dc-430c-bf2c-f626c588576e (дата
+обращения: 14.11.2026).
+2. xUnit.net. Documentation for .NET testing. URL: https://xunit.net/ (дата
+обращения: 14.11.2026).
+3. Fluent Assertions. Introduction and license information. URL:
+https://fluentassertions.com/documentation/ (дата обращения: 14.11.2026).
+4. Microsoft Learn. Prevent Cross-Site Request Forgery attacks in ASP.NET Core.
+URL: https://learn.microsoft.com/aspnet/core/security/anti-request-forgery (дата
+обращения: 14.11.2026).
+5. Microsoft Learn. ASP.NET Core web API documentation. URL:
+https://learn.microsoft.com/aspnet/core/web-api/ (дата обращения: 14.11.2026).
+6. OWASP Top 10:2025. Web application security risks. URL:
+https://top10.owasp.org/2025/ (дата обращения: 14.11.2026).
+      Программные материалы: авторская учебная реализация EnergyMeter
+System; структура файлов и листинги приведены в локальном архиве проекта.
+
+ПРИЛОЖЕНИЕ А. СВЯЗЬ С ИСХОДНЫМ КОДОМ И
+РЕПОЗИТОРИЕМ
+
+      Исходный      код:   локальный        git-репозиторий   в    корне      архива
+EnergyMeter_System, каталог Project. Планируемая ссылка на GitHub:
+https://github.com/Girfor/EnergyMeter-System
+      До публикации GitHub-ссылка не работает. После создания репозитория
+замените URL с помощью tools/fill_repository_link.py; тесты подтверждаются
+только логом dotnet test или GitHub Actions.
+
+
+
+
+                                        6

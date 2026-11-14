@@ -1,0 +1,12 @@
+// EDUCATIONAL NEGATIVE EXAMPLE. Never deploy this file.
+// Defect EM-SEC-01: Swagger UI and JSON exposed in Production.
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// Defect EM-SEC-02: a cookie-authenticated browser POST without CSRF validation.
+[Authorize]
+[HttpPost("api/dashboard/readings")]
+public IActionResult SaveReading(CreateReadingRequest request)
+{
+    return Ok(_service.Create(request)); // Missing anti-forgery enforcement!
+}

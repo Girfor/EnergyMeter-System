@@ -1,0 +1,15 @@
+// Educational BEFORE-REFACTORING code, not part of compiled application.
+public IActionResult Save(CreateReadingRequest request)
+{
+    if (request == null) return BadRequest();
+    if (request.MeterId == null) return BadRequest();
+    if (request.MeterId.Trim() == "") return BadRequest();
+    if (request.ValueKwh < 0) return BadRequest();
+    if (request.ValueKwh > 1000000) return BadRequest();
+    if (request.ObservedAtUtc > DateTimeOffset.UtcNow.AddMinutes(5)) return BadRequest();
+    if (_repository.FindByMeter(request.MeterId).Any(r =>
+        r.ObservedAtUtc == request.ObservedAtUtc)) return Conflict();
+    _repository.TryAdd(new MeterReading(Guid.NewGuid(), request.MeterId,
+        request.ValueKwh, request.ObservedAtUtc));
+    return Ok();
+}

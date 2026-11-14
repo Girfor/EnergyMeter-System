@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnergyMeter.Api", "src\EnergyMeter.Api\EnergyMeter.Api.csproj", "{5B8F9244-6BAB-48CF-AFA1-D9A92B64D9EE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnergyMeter.Tests", "tests\EnergyMeter.Tests\EnergyMeter.Tests.csproj", "{AA79DE60-D167-42B7-8B7D-640E14BC3535}"
+EndProject
+Global
+ GlobalSection(SolutionConfigurationPlatforms) = preSolution
+  Debug|Any CPU = Debug|Any CPU
+  Release|Any CPU = Release|Any CPU
+ EndGlobalSection
+ GlobalSection(ProjectConfigurationPlatforms) = postSolution
+  {5B8F9244-6BAB-48CF-AFA1-D9A92B64D9EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+  {5B8F9244-6BAB-48CF-AFA1-D9A92B64D9EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+  {5B8F9244-6BAB-48CF-AFA1-D9A92B64D9EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+  {5B8F9244-6BAB-48CF-AFA1-D9A92B64D9EE}.Release|Any CPU.Build.0 = Release|Any CPU
+  {AA79DE60-D167-42B7-8B7D-640E14BC3535}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+  {AA79DE60-D167-42B7-8B7D-640E14BC3535}.Debug|Any CPU.Build.0 = Debug|Any CPU
+  {AA79DE60-D167-42B7-8B7D-640E14BC3535}.Release|Any CPU.ActiveCfg = Release|Any CPU
+  {AA79DE60-D167-42B7-8B7D-640E14BC3535}.Release|Any CPU.Build.0 = Release|Any CPU
+ EndGlobalSection
+EndGlobal
